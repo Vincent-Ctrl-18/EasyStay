@@ -26,10 +26,8 @@ app.use(express.urlencoded({ extended: true }));
 // Rate limiting for auth routes
 
 const authLimiter = rateLimit({
-  //windowMs: 15 * 60 * 1000, // 15 minutes
-  //max: 20, // 20 requests per window
-  windowMs: 15 * 60 * 1000, // 保持15分钟不变（也可改成 1 * 60 * 1000 即1分钟）
-  max: 999, // 把20改成999（测试时几乎无限制）
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // 20 requests per window
   message: { message: '请求过于频繁，请稍后再试' },
   standardHeaders: true,
   legacyHeaders: false,
