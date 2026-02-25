@@ -18,7 +18,6 @@ interface UserAttributes {
 }
 //定义UserAttributes接口
 interface UserCreation extends Optional<UserAttributes, 'id' | 'created_at'> {}
-//把 UserAttributes 中的 id 和 created_at 字段变成可选的
 
 class User extends Model<UserAttributes, UserCreation> implements UserAttributes {
   public id!: number;
