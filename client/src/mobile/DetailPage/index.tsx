@@ -1,13 +1,13 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Swiper, DotLoading } from 'antd-mobile';
+import { Swiper } from 'antd-mobile';
 import { hotelAPI } from '../../api';
 import useSearchStore from '../../stores/useSearchStore';
-import { useT, useLanguageStore, translateTag, getFacilityInfo, getNearbyTypeLabel, formatDate } from '../../i18n';
+import { useT, useLanguageStore, translateTag, getFacilityInfo, getNearbyTypeLabel, formatDate, translateCity } from '../../i18n';
 import { parseJSON } from '../../utils';
 import CalendarPicker from '../../components/CalendarPicker';
+import MapComponent from './MapComponent';
 import dayjs from 'dayjs';
-import './style.css';
 
 export default function DetailPage() {
   const { id } = useParams();
@@ -28,7 +28,6 @@ export default function DetailPage() {
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [favorited, setFavorited] = useState(false);
-  const [showAllAmenities, setShowAllAmenities] = useState(false);
 
   const roomsSectionRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -95,29 +94,20 @@ export default function DetailPage() {
 
   if (loading) {
     return (
-      <div className="dp-page">
-        {/* Skeleton Header */}
-        <div className="dp-skeleton-header">
-          <div className="dp-skeleton-img dp-skeleton-pulse" />
-          <div className="dp-skeleton-header-bar">
-            <div className="dp-skeleton-circle dp-skeleton-pulse" />
-            <div className="dp-skeleton-line dp-skeleton-pulse" style={{ width: '40%', height: 14 }} />
-          </div>
+      <div className="min-h-screen bg-white flex flex-col relative overflow-hidden font-['Plus_Jakarta_Sans']">
+        <div className="relative">
+          <div className="w-full h-[400px] animate-[pulse_1.5s_ease-in-out_infinite] bg-gray-200" />
         </div>
-        {/* Skeleton Body */}
-        <div className="dp-skeleton-body">
-          <div className="dp-skeleton-line dp-skeleton-pulse" style={{ width: '70%', height: 20, marginBottom: 12 }} />
-          <div className="dp-skeleton-line dp-skeleton-pulse" style={{ width: '50%', height: 14, marginBottom: 20 }} />
-          <div className="dp-skeleton-line dp-skeleton-pulse" style={{ width: '90%', height: 14, marginBottom: 8 }} />
-          <div className="dp-skeleton-line dp-skeleton-pulse" style={{ width: '60%', height: 14, marginBottom: 24 }} />
-          <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+        <div className="p-6 -mt-8 bg-white rounded-t-[32px] relative z-10">
+          <div className="rounded-md animate-[pulse_1.5s_ease-in-out_infinite] bg-gray-200" style={{ width: '60%', height: 28, marginBottom: 16 }} />
+          <div className="rounded-md animate-[pulse_1.5s_ease-in-out_infinite] bg-gray-200" style={{ width: '40%', height: 16, marginBottom: 24 }} />
+          <div className="flex gap-3 mb-8">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="dp-skeleton-chip dp-skeleton-pulse" />
+              <div key={i} className="w-[88px] h-[96px] rounded-[20px] animate-[pulse_1.5s_ease-in-out_infinite] bg-gray-100" />
             ))}
           </div>
-          <div className="dp-skeleton-line dp-skeleton-pulse" style={{ width: '40%', height: 16, marginBottom: 12 }} />
-          <div className="dp-skeleton-card dp-skeleton-pulse" />
-          <div className="dp-skeleton-card dp-skeleton-pulse" />
+          <div className="rounded-md animate-[pulse_1.5s_ease-in-out_infinite] bg-gray-200" style={{ width: '30%', height: 20, marginBottom: 12 }} />
+          <div className="w-full h-[120px] rounded-[20px] animate-[pulse_1.5s_ease-in-out_infinite] bg-gray-100" />
         </div>
       </div>
     );
@@ -125,14 +115,13 @@ export default function DetailPage() {
 
   if (!hotel) {
     return (
-      <div className="dp-empty">
-        <span className="material-symbols-outlined" style={{ fontSize: 48, color: 'var(--text-tertiary)' }}>hotel</span>
+      <div className="flex flex-col items-center justify-center min-h-screen gap-3 text-gray-500 text-[15px] font-['Plus_Jakarta_Sans'] bg-white">
+        <span className="material-symbols-outlined text-[48px]">hotel</span>
         <p>{t('detail.hotelNotFound')}</p>
       </div>
     );
   }
 
-  const tags: string[] = parseJSON(hotel.tags);
   const facilities: string[] = parseJSON(hotel.facilities);
   const images: string[] = parseJSON(hotel.images);
   const rooms = (hotel.RoomTypes || []).sort((a: any, b: any) => a.price - b.price);
@@ -141,7 +130,6 @@ export default function DetailPage() {
   const lowestPrice = rooms.length > 0 ? rooms[0].price : null;
   const displayPrice = selectedRoom ? selectedRoom.price : lowestPrice;
 
-  const tagColors = ['blue', 'purple', 'orange', 'green', 'pink'];
   const hotelDisplayName = lang === 'en' && hotel.name_en ? hotel.name_en : hotel.name_cn;
 
   const openCalendar = (type: 'checkIn' | 'checkOut') => {
@@ -171,37 +159,72 @@ export default function DetailPage() {
       const container = scrollRef.current;
       const target = roomsSectionRef.current;
       const targetTop = target.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
-      container.scrollTo({ top: targetTop - 10, behavior: 'smooth' });
+      container.scrollTo({ top: targetTop - 20, behavior: 'smooth' });
+    }
+  };
+
+  const scrollToMap = () => {
+    const mapEl = document.getElementById('map');
+    if (mapEl && scrollRef.current) {
+      const container = scrollRef.current;
+      const targetTop = mapEl.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+      container.scrollTo({ top: targetTop - 20, behavior: 'smooth' });
     }
   };
 
   return (
-    <div className="dp-page">
+    <div className="h-[100dvh] w-full bg-white flex flex-col relative overflow-hidden font-['Plus_Jakarta_Sans'] selection:bg-sky-100">
       {/* Scrollable Content */}
-      <div className="dp-scroll no-scrollbar" ref={scrollRef}>
-        {/* Hero Image */}
-        <div className="dp-hero">
-          {images.length > 0 ? (
-            <Swiper
-              loop
-              onIndexChange={setActiveImg}
-              style={{ '--height': '380px' } as React.CSSProperties}
-              indicator={() => null}
+      <div className="flex-1 overflow-y-auto relative pb-[110px] no-scrollbar" ref={scrollRef}>
+        
+        {/* Floating Nav - Apple Style */}
+        <div className={`fixed top-0 left-0 right-0 z-[60] flex justify-between items-center px-5 py-3 pt-[max(16px,env(safe-area-inset-top))] transition-all duration-300 ${showNavTitle ? 'bg-white/80 backdrop-blur-xl border-b border-gray-100' : 'bg-transparent'}`}>
+          <button 
+            className={`w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all active:scale-95 text-[14px] font-bold border-none ${showNavTitle ? 'bg-gray-100 text-gray-900' : 'bg-white/30 backdrop-blur-md text-white border border-white/20'}`} 
+            onClick={() => navigate(-1)}
+          >
+            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+          </button>
+          
+          <div className={`flex-1 text-[17px] font-bold text-gray-900 overflow-hidden text-ellipsis whitespace-nowrap px-4 text-center transition-opacity duration-300 ${showNavTitle ? 'opacity-100' : 'opacity-0'}`}>
+            {hotelDisplayName}
+          </div>
+          
+          <div className="flex gap-2.5">
+            <button 
+              className={`w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all active:scale-95 text-[14px] font-bold border-none ${showNavTitle ? 'bg-gray-100 text-gray-900' : 'bg-white/30 backdrop-blur-md text-white border border-white/20'}`} 
+              onClick={handleShare}
             >
+              <span className="material-symbols-outlined text-[18px]">share</span>
+            </button>
+            <button 
+              className={`w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all active:scale-95 text-[14px] font-bold border-none ${showNavTitle ? 'bg-gray-100' : 'bg-white/30 backdrop-blur-md border border-white/20'}`} 
+              onClick={toggleFavorite}
+            >
+              <span className={`material-symbols-outlined text-[20px] ${favorited ? 'text-red-500' : (showNavTitle ? 'text-gray-900' : 'text-white')}`} style={favorited ? { fontVariationSettings: "'FILL' 1" } : undefined}>
+                favorite
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Hero Image */}
+        <div className="relative w-full h-[45vh] shrink-0 bg-gray-900">
+          {images.length > 0 ? (
+            <Swiper loop onIndexChange={setActiveImg} style={{ '--height': '100%' } as React.CSSProperties} indicator={() => null}>
               {images.map((img: string, idx: number) => (
                 <Swiper.Item key={idx}>
-                  <div className="dp-hero-img">
+                  <div className="w-full h-full relative">
                     {!heroImgErrors[idx] ? (
                       <img
-                        className="dp-hero-real-img"
+                        className="w-full h-full object-cover block"
                         src={img}
                         alt={`${hotel.name_cn} ${idx + 1}`}
                         onError={() => setHeroImgErrors((prev) => ({ ...prev, [idx]: true }))}
                       />
                     ) : (
-                      <div className="dp-hero-placeholder">
-                        <span className="hero-letter">{hotel.name_cn.charAt(0)}</span>
-                        <span className="hero-label">{idx + 1}/{images.length}</span>
+                      <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                        <span className="text-white/20 font-bold">Image Failed</span>
                       </div>
                     )}
                   </div>
@@ -209,133 +232,102 @@ export default function DetailPage() {
               ))}
             </Swiper>
           ) : (
-            <div className="dp-hero-img">
-              <div className="dp-hero-placeholder">
-                <span className="hero-letter">{hotel.name_cn.charAt(0)}</span>
-              </div>
-            </div>
+            <div className="w-full h-full bg-gray-800" />
           )}
 
-          {/* Carousel Dots */}
+          {/* Image Counter Overlay */}
           {images.length > 1 && (
-            <div className="dp-hero-dots">
-              {images.map((_: string, idx: number) => (
-                <div key={idx} className={`hero-dot ${idx === activeImg ? 'active' : ''}`} />
-              ))}
-            </div>
-          )}
-
-          {/* Image Counter */}
-          {images.length > 1 && (
-            <div className="dp-img-counter">
+            <div className="absolute bottom-12 right-5 bg-black/40 backdrop-blur-md text-white text-[12px] font-bold px-3 py-1.5 rounded-lg z-10 flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[14px]">photo_library</span>
               {activeImg + 1}/{images.length}
             </div>
           )}
-
-          {/* Gradient Overlay */}
-          <div className="dp-hero-gradient" />
         </div>
 
-        {/* Floating Nav */}
-        <div className={`dp-float-nav ${showNavTitle ? 'dp-nav-solid' : ''}`}>
-          <button className="dp-nav-btn" onClick={() => navigate(-1)}>
-            <span className="material-symbols-outlined">arrow_back</span>
-          </button>
-          {showNavTitle && (
-            <div className="dp-nav-title">{hotelDisplayName}</div>
-          )}
-          <div className="dp-nav-right">
-            <button className="dp-nav-btn" onClick={toggleLang}>
-              {lang === 'zh' ? 'EN' : '中'}
-            </button>
-            <button className="dp-nav-btn" onClick={toggleFavorite}>
-              <span className="material-symbols-outlined" style={favorited ? { fontVariationSettings: "'FILL' 1", color: '#ef4444' } : undefined}>favorite</span>
-            </button>
-            <button className="dp-nav-btn" onClick={handleShare}>
-              <span className="material-symbols-outlined">ios_share</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Content Sheet */}
-        <div className="dp-content">
-          <div className="dp-sheet-handle">
-            <div className="handle-bar" />
-          </div>
-
-          <div className="dp-inner">
-            {/* Header: Name + Rating */}
-            <div className="dp-header">
-              <div className="dp-header-left">
-                <h1 className="dp-name">{hotelDisplayName}</h1>
-                {lang === 'en' && hotel.name_cn && (
-                  <p className="dp-name-sub">{hotel.name_cn}</p>
-                )}
-                {lang === 'zh' && hotel.name_en && (
-                  <p className="dp-name-sub">{hotel.name_en}</p>
-                )}
-              </div>
-              <div className="dp-rating">
-                <span className="dp-rating-num">{hotel.star}.0</span>
-                <span className="material-symbols-outlined dp-rating-star">star</span>
+        {/* Main Content Sheet - Overlapping the image */}
+        <div className="relative -mt-8 bg-white rounded-t-[32px] shadow-[0_-8px_30px_rgba(0,0,0,0.06)] z-[50] min-h-screen pb-12">
+          
+          <div className="px-6 pt-8 pb-4">
+            
+            {/* Title Row */}
+            <div className="flex justify-between items-start mb-2 gap-4">
+              <h1 className="text-[28px] font-extrabold text-gray-900 leading-tight tracking-tight">
+                {hotelDisplayName}
+              </h1>
+              <div className="bg-sky-50 text-sky-500 px-3 py-1.5 rounded-xl border border-sky-100 shrink-0 flex items-center gap-1 whitespace-nowrap">
+                <span className="text-[13px] font-extrabold">{hotel.star} Star</span>
               </div>
             </div>
 
-            {/* Location */}
-            <div className="dp-location">
-              <span className="material-symbols-outlined dp-loc-icon">location_on</span>
-              <p className="dp-loc-text">{hotel.address}</p>
-              <span className="dp-loc-sep">•</span>
-              <span className="dp-loc-star">{t('detail.starHotel', { n: hotel.star })}</span>
+            {/* Location Row */}
+            <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-4">
+              <div className="flex items-center text-sky-500">
+                <span className="material-symbols-outlined text-[18px]">location_on</span>
+              </div>
+              <p className="text-[15px] font-semibold text-gray-500">
+                {translateCity(hotel.city, lang)}
+              </p>
+              <span className="text-gray-300 font-bold mx-0.5">•</span>
+              <button onClick={scrollToMap} className="bg-transparent border-none p-0 m-0 text-[15px] font-semibold text-sky-500 underline decoration-sky-500/30 underline-offset-4 cursor-pointer hover:text-sky-600 transition-colors">
+                {t('detail.showOnMap')}
+              </button>
             </div>
 
-            {/* Tags */}
-            {tags.length > 0 && (
-              <div className="dp-tags">
-                {tags.map((tag: string, idx: number) => (
-                  <span key={tag} className={`dp-tag dp-tag-${tagColors[idx % tagColors.length]}`}>
-                    {translateTag(tag, lang)}
-                  </span>
-                ))}
+            {/* Rating Row */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="bg-sky-500 text-white font-extrabold text-[15px] px-2.5 py-1 rounded-[8px] shadow-sm shadow-sky-500/30">
+                4.8
               </div>
-            )}
+              <div className="text-[15px] text-gray-700 font-medium">
+                <span className="font-bold text-gray-900">{t('detail.excellent')}</span> {t('detail.reviews', { n: 120 })}
+              </div>
+            </div>
 
-            <div className="dp-divider" />
+            <div className="h-px bg-gray-100 my-6" />
 
             {/* About */}
             {hotel.description && (
-              <section className="dp-section">
-                <h3 className="dp-section-title">{t('detail.about')}</h3>
-                <div className="dp-about">
-                  <p className={`dp-about-text ${expanded ? '' : 'clamped'}`}>
+              <section className="mb-8">
+                <h3 className="text-[20px] font-extrabold text-gray-900 mb-3 tracking-tight">{t('detail.about')}</h3>
+                <div className="relative">
+                  <p className={`text-[15px] text-gray-500 leading-[1.6] ${expanded ? '' : 'line-clamp-4'}`}>
                     {hotel.description}
                   </p>
-                  <button className="dp-read-more" onClick={() => setExpanded(!expanded)}>
-                    {expanded ? t('common.cancel') : t('detail.readMore')}
-                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
-                      {expanded ? 'expand_less' : 'expand_more'}
-                    </span>
-                  </button>
+                  {!expanded && hotel.description.length > 150 && (
+                    <button 
+                      className="mt-2 bg-transparent border-none cursor-pointer text-sky-500 text-[15px] font-bold p-0 flex items-center gap-0.5" 
+                      onClick={() => setExpanded(true)}
+                    >
+                      {t('detail.readMore')}
+                      <span className="material-symbols-outlined text-[18px]">expand_more</span>
+                    </button>
+                  )}
+                  {expanded && (
+                    <button 
+                      className="mt-2 bg-transparent border-none cursor-pointer text-sky-500 text-[15px] font-bold p-0 flex items-center gap-0.5" 
+                      onClick={() => setExpanded(false)}
+                    >
+                      {t('detail.showLess')}
+                      <span className="material-symbols-outlined text-[18px]">expand_less</span>
+                    </button>
+                  )}
                 </div>
               </section>
             )}
 
             {/* Amenities */}
             {facilities.length > 0 && (
-              <section className="dp-section">
-                <div className="dp-section-header">
-                  <h3 className="dp-section-title">{t('detail.amenities')}</h3>
-                  <button className="dp-see-all" onClick={() => setShowAllAmenities(true)}>{t('detail.seeAll')}</button>
-                </div>
-                <div className="dp-amenities no-scrollbar">
+              <section className="mb-8">
+                <h3 className="text-[20px] font-extrabold text-gray-900 mb-4 tracking-tight">{t('detail.amenities')}</h3>
+                <div className="flex gap-3 overflow-x-auto -mx-6 px-6 no-scrollbar snap-x pb-2">
                   {facilities.map((f: string) => {
                     const info = getFacilityInfo(f, lang);
                     return (
-                      <div key={f} className="dp-amenity-card">
-                        <div className="dp-amenity-icon">
-                          <span className="material-symbols-outlined">{info.icon}</span>
+                      <div key={f} className="flex flex-col items-center justify-center min-w-[88px] h-[96px] rounded-[20px] bg-white border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] shrink-0 snap-start">
+                        <div className="text-sky-500 mb-2.5">
+                          <span className="material-symbols-outlined text-[28px]">{info.icon}</span>
                         </div>
-                        <span className="dp-amenity-name">{info.name}</span>
+                        <span className="text-[12px] font-bold text-gray-500">{info.name}</span>
                       </div>
                     );
                   })}
@@ -344,44 +336,36 @@ export default function DetailPage() {
             )}
 
             {/* Your Stay - Date + Room/Guest */}
-            <section className="dp-section">
-              <h3 className="dp-section-title">{t('detail.yourStay')}</h3>
-              <div className="dp-date-card">
-                <div className="dp-date-item" onClick={() => openCalendar('checkIn')}>
-                  <span className="dp-date-label">{t('search.checkIn')}</span>
-                  <span className="dp-date-value">{formatDate(store.checkIn, lang)}</span>
-                </div>
-                <div className="dp-date-nights">{t('search.nights', { n: nights })}</div>
-                <div className="dp-date-item" onClick={() => openCalendar('checkOut')}>
-                  <span className="dp-date-label">{t('search.checkOut')}</span>
-                  <span className="dp-date-value">{formatDate(store.checkOut, lang)}</span>
-                </div>
+            <section className="mb-8">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-[20px] font-extrabold text-gray-900 tracking-tight">{t('detail.yourStay')}</h3>
               </div>
-              {/* Room & Guest Info */}
-              <div className="dp-stay-info">
-                <div className="dp-stay-item">
-                  <span className="material-symbols-outlined dp-stay-icon">meeting_room</span>
-                  <span className="dp-stay-text">{t('search.rooms', { n: store.roomCount })}</span>
-                  <div className="dp-stay-counter">
-                    <button className="dp-stay-btn" onClick={() => store.setRoomCount(store.roomCount - 1)} disabled={store.roomCount <= 1}>
-                      <span className="material-symbols-outlined">remove</span>
-                    </button>
-                    <span className="dp-stay-val">{store.roomCount}</span>
-                    <button className="dp-stay-btn" onClick={() => store.setRoomCount(store.roomCount + 1)} disabled={store.roomCount >= 10}>
-                      <span className="material-symbols-outlined">add</span>
-                    </button>
+              
+              <div className="bg-[#f5f5f7] rounded-[24px] p-2 flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <div className="flex-1 bg-white rounded-[18px] p-4 flex flex-col cursor-pointer active:bg-gray-50 transition-colors shadow-sm" onClick={() => openCalendar('checkIn')}>
+                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">{t('search.checkIn')}</span>
+                    <span className="text-[16px] font-extrabold text-gray-900">{formatDate(store.checkIn, lang)}</span>
+                  </div>
+                  <div className="flex-1 bg-white rounded-[18px] p-4 flex flex-col cursor-pointer active:bg-gray-50 transition-colors shadow-sm" onClick={() => openCalendar('checkOut')}>
+                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">{t('search.checkOut')}</span>
+                    <span className="text-[16px] font-extrabold text-gray-900">{formatDate(store.checkOut, lang)}</span>
                   </div>
                 </div>
-                <div className="dp-stay-item">
-                  <span className="material-symbols-outlined dp-stay-icon">person</span>
-                  <span className="dp-stay-text">{t('search.adults', { n: store.adultCount })}</span>
-                  <div className="dp-stay-counter">
-                    <button className="dp-stay-btn" onClick={() => store.setAdultCount(store.adultCount - 1)} disabled={store.adultCount <= 1}>
-                      <span className="material-symbols-outlined">remove</span>
+                
+                <div className="bg-white rounded-[18px] p-4 flex items-center justify-between shadow-sm">
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">{t('search.roomGuest')}</span>
+                    <span className="text-[16px] font-extrabold text-gray-900">
+                      {t('search.rooms', { n: store.roomCount })} · {t('search.adults', { n: store.adultCount })}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="w-10 h-10 rounded-full border-none bg-[#f5f5f7] flex items-center justify-center cursor-pointer text-gray-900 disabled:opacity-30 active:bg-gray-200 transition-colors" onClick={() => store.setRoomCount(Math.max(1, store.roomCount - 1))}>
+                      <span className="material-symbols-outlined text-[20px]">remove</span>
                     </button>
-                    <span className="dp-stay-val">{store.adultCount}</span>
-                    <button className="dp-stay-btn" onClick={() => store.setAdultCount(store.adultCount + 1)} disabled={store.adultCount >= 20}>
-                      <span className="material-symbols-outlined">add</span>
+                    <button className="w-10 h-10 rounded-full border-none bg-[#f5f5f7] flex items-center justify-center cursor-pointer text-gray-900 disabled:opacity-30 active:bg-gray-200 transition-colors" onClick={() => store.setRoomCount(Math.min(10, store.roomCount + 1))}>
+                      <span className="material-symbols-outlined text-[20px]">add</span>
                     </button>
                   </div>
                 </div>
@@ -389,55 +373,56 @@ export default function DetailPage() {
             </section>
 
             {/* Room Types */}
-            <section className="dp-section" ref={roomsSectionRef}>
-              <h3 className="dp-section-title">{t('detail.rooms')}</h3>
+            <section className="mb-8" ref={roomsSectionRef}>
+              <h3 className="text-[20px] font-extrabold text-gray-900 mb-4 tracking-tight">{t('detail.rooms')}</h3>
               {rooms.length === 0 ? (
-                <p className="dp-empty-text">{t('detail.noRooms')}</p>
+                <p className="text-center text-gray-400 p-5 text-[15px] font-medium">{t('detail.noRooms')}</p>
               ) : (
-                <div className="dp-rooms">
+                <div className="flex flex-col gap-4">
                   {rooms.map((room: any) => {
                     const roomImg = getRoomImage(room);
                     const hasRoomImgError = roomImgErrors[room.id];
+                    const isSelected = selectedRoom?.id === room.id;
+                    
                     return (
-                      <div key={room.id} className="dp-room-card" onClick={() => setSelectedRoom(room)}>
+                      <div 
+                        key={room.id} 
+                        className={`flex gap-4 p-4 rounded-[24px] cursor-pointer transition-all border-2 ${isSelected ? 'bg-sky-50 border-sky-500 shadow-[0_8px_20px_rgba(14,165,233,0.15)]' : 'bg-white border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.04)] active:bg-gray-50'}`} 
+                        onClick={() => setSelectedRoom(room)}
+                      >
                         {/* Room Image */}
-                        <div className="dp-room-img-wrap">
+                        <div className="w-[88px] h-[88px] rounded-[16px] overflow-hidden shrink-0">
                           {roomImg && !hasRoomImgError ? (
-                            <img
-                              className="dp-room-img"
-                              src={roomImg}
-                              alt={room.name}
-                              onError={() => setRoomImgErrors((prev) => ({ ...prev, [room.id]: true }))}
-                            />
+                            <img className="w-full h-full object-cover block" src={roomImg} alt={room.name} onError={() => setRoomImgErrors((prev) => ({ ...prev, [room.id]: true }))} />
                           ) : (
-                            <div className="dp-room-img-placeholder">
-                              <span className="material-symbols-outlined">bed</span>
+                            <div className="w-full h-full bg-[#f5f5f7] flex items-center justify-center text-gray-400">
+                              <span className="material-symbols-outlined text-[32px]">bed</span>
                             </div>
                           )}
                         </div>
-                        <div className="dp-room-info">
-                          <div className="dp-room-name">{room.name}</div>
-                          <div className="dp-room-meta">
-                            <span className="dp-room-capacity">
-                              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>person</span>
-                              {t('detail.capacity', { n: room.capacity })}
+                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                          <div className="text-[17px] font-extrabold text-gray-900 mb-1 leading-tight">{room.name}</div>
+                          <div className="flex flex-wrap gap-2 text-[12px] font-bold text-gray-500 mb-2">
+                            <span className="flex items-center gap-0.5">
+                              <span className="material-symbols-outlined text-[14px]">person</span>
+                              {t('detail.upTo', { n: room.capacity })}
                             </span>
                             {room.breakfast && (
-                              <span className="dp-room-breakfast">
-                                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>restaurant</span>
+                              <span className="flex items-center gap-0.5 text-green-600">
+                                <span className="material-symbols-outlined text-[14px]">restaurant</span>
                                 {t('detail.breakfast')}
                               </span>
                             )}
                           </div>
-                        </div>
-                        <div className="dp-room-price">
-                          {room.original_price && room.original_price > room.price && (
-                            <span className="dp-room-original">¥{room.original_price}</span>
-                          )}
-                          <div className="dp-room-current">
-                            <span className="dp-price-sign">¥</span>
-                            <span className="dp-price-num">{room.price}</span>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-[14px] font-extrabold text-gray-900">¥{room.price}</span>
+                            <span className="text-[12px] font-medium text-gray-400">{t('detail.perNight')}</span>
                           </div>
+                        </div>
+                        <div className="flex items-center shrink-0">
+                           <div className={`w-6 h-6 rounded-full border-[2px] flex items-center justify-center transition-colors ${isSelected ? 'border-sky-500 bg-sky-500 text-white' : 'border-gray-300 bg-transparent text-transparent'}`}>
+                             <span className="material-symbols-outlined text-[16px] font-bold">check</span>
+                           </div>
                         </div>
                       </div>
                     );
@@ -446,170 +431,98 @@ export default function DetailPage() {
               )}
             </section>
 
-            {/* Nearby Places */}
-            {nearby.length > 0 && (
-              <section className="dp-section">
-                <h3 className="dp-section-title">{t('detail.nearby')}</h3>
-                <div className="dp-nearby">
-                  {nearby.map((place: any) => (
-                    <div key={place.id} className="dp-nearby-item">
-                      <span className={`dp-nearby-badge ${place.type}`}>
-                        {getNearbyTypeLabel(place.type, lang)}
-                      </span>
-                      <span className="dp-nearby-name">{place.name}</span>
-                      <span className="dp-nearby-dist">{place.distance}</span>
-                    </div>
-                  ))}
+            {/* Location Map */}
+            <section className="mb-4" id="map">
+              <h3 className="text-[20px] font-extrabold text-gray-900 mb-4 tracking-tight">Location</h3>
+              
+              <div className="rounded-[24px] overflow-hidden border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] mb-6">
+                <MapComponent address={hotel.address} city={hotel.city} hotelName={hotelDisplayName} />
+                <div className="p-4 bg-white flex items-start gap-2">
+                  <span className="material-symbols-outlined text-[20px] text-sky-500 shrink-0">location_on</span>
+                  <p className="text-[14px] font-semibold text-gray-600 leading-snug m-0">
+                    {hotel.address}
+                  </p>
                 </div>
-              </section>
-            )}
+              </div>
+
+              {/* Nearby Places */}
+              {nearby.length > 0 && (
+                <div className="bg-[#f5f5f7] rounded-[24px] p-2 flex flex-col gap-2">
+                  {nearby.map((place: any) => {
+                    const iconMap: any = { attraction: 'photo_camera', transport: 'directions_bus', mall: 'local_mall' };
+                    const icon = iconMap[place.type as string] || 'place';
+                    return (
+                      <div key={place.id} className="flex items-center gap-3 px-4 py-3 bg-white rounded-[18px] shadow-sm">
+                        <div className="w-8 h-8 rounded-full bg-sky-50 text-sky-500 flex items-center justify-center shrink-0">
+                           <span className="material-symbols-outlined text-[16px]">{icon}</span>
+                        </div>
+                        <span className="text-[15px] font-bold text-gray-900 flex-1">{place.name}</span>
+                        <span className="text-[13px] font-bold text-gray-400">{place.distance}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
           </div>
         </div>
       </div>
 
-      {/* Bottom Bar */}
-      <div className="dp-bottom-bar">
-        <div className="dp-bottom-price">
-          <span className="dp-price-label">{t('detail.totalPrice')}</span>
-          <div className="dp-price-row">
-            <span className="dp-bottom-amount">
-              {displayPrice ? `¥${displayPrice * nights * store.roomCount}` : '--'}
+      {/* Bottom Bar - Apple Style */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-100 px-6 pt-4 pb-[max(24px,env(safe-area-inset-bottom))] z-[80] shadow-[0_-8px_20px_rgba(0,0,0,0.04)] flex items-center justify-between gap-6">
+        <div className="flex flex-col">
+          <span className="text-[12px] font-bold text-gray-400 mb-0.5">{t('detail.totalPrice')}</span>
+          <div className="flex items-baseline gap-1">
+            <span className="text-[26px] font-extrabold text-gray-900 tracking-tight">
+              {displayPrice ? `¥${displayPrice}` : '--'}
             </span>
-            <span className="dp-price-per">
-              {displayPrice ? t('detail.priceBreakdown', { price: displayPrice, nights, rooms: store.roomCount }) : t('detail.perNight')}
+            <span className="text-[14px] text-gray-500 font-bold">
+              {t('detail.perNight')}
             </span>
           </div>
         </div>
-        <button className="dp-select-btn" onClick={scrollToRooms}>
-          {t('detail.selectRoom')}
-          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>arrow_forward</span>
+        <button 
+          className="flex items-center justify-center px-10 py-4 bg-sky-500 text-white border-none rounded-2xl text-[17px] font-extrabold cursor-pointer shadow-[0_8px_20px_rgba(14,165,233,0.3)] transition-all font-['Plus_Jakarta_Sans'] hover:bg-sky-600 active:scale-95" 
+          onClick={() => {
+            if (!selectedRoom) scrollToRooms();
+            else setBookingSuccess(true);
+          }}
+        >
+          {selectedRoom ? t('detail.bookNow') : t('detail.selectRoom')}
         </button>
       </div>
 
-      {/* Booking Bottom Sheet */}
-      {selectedRoom && !bookingSuccess && (
-        <div className="dp-booking-overlay">
-          <div className="dp-booking-mask" onClick={() => setSelectedRoom(null)} />
-          <div className="dp-booking-sheet">
-            <div className="dp-sheet-handle"><div className="handle-bar" /></div>
-            <h3 className="dp-booking-title">{t('detail.orderDetail')}</h3>
-
-            {/* Room Header */}
-            <div className="dp-booking-room-header">
-              <div className="dp-booking-room-img">
-                {getRoomImage(selectedRoom) ? (
-                  <img src={getRoomImage(selectedRoom)!} alt={selectedRoom.name} />
-                ) : (
-                  <div className="dp-booking-room-placeholder">
-                    <span className="material-symbols-outlined">bed</span>
-                  </div>
-                )}
-              </div>
-              <div className="dp-booking-room-info">
-                <div className="dp-booking-room-name">{selectedRoom.name}</div>
-                <div className="dp-booking-room-meta">
-                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>person</span>
-                  {t('detail.capacity', { n: selectedRoom.capacity })}
-                  {selectedRoom.breakfast && (
-                    <> · <span className="material-symbols-outlined" style={{ fontSize: 14 }}>restaurant</span>{t('detail.breakfast')}</>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Order Details */}
-            <div className="dp-booking-details">
-              <div className="dp-booking-row">
-                <span className="dp-booking-label">{t('detail.dateRange')}</span>
-                <span className="dp-booking-value">{formatDate(store.checkIn, lang)} - {formatDate(store.checkOut, lang)}</span>
-              </div>
-              <div className="dp-booking-row">
-                <span className="dp-booking-label">{t('detail.nightCount')}</span>
-                <span className="dp-booking-value">{nights}{t('detail.nightUnit')}</span>
-              </div>
-              <div className="dp-booking-row">
-                <span className="dp-booking-label">{t('detail.roomCountLabel')}</span>
-                <span className="dp-booking-value">{store.roomCount}{t('detail.roomUnit')}</span>
-              </div>
-              <div className="dp-booking-row">
-                <span className="dp-booking-label">{t('detail.guestCount')}</span>
-                <span className="dp-booking-value">{store.adultCount}{t('detail.adultUnit')}</span>
-              </div>
-              <div className="dp-booking-row">
-                <span className="dp-booking-label">{t('detail.unitPrice')}</span>
-                <span className="dp-booking-value dp-booking-price-val">¥{selectedRoom.price}{t('detail.perNight')}</span>
-              </div>
-              <div className="dp-booking-divider" />
-              <div className="dp-booking-row dp-booking-total">
-                <span className="dp-booking-label">{t('detail.totalAmount')}</span>
-                <span className="dp-booking-value dp-booking-total-val">¥{selectedRoom.price * nights * store.roomCount}</span>
-              </div>
-            </div>
-
-            <button
-              className="dp-booking-confirm-btn"
-              onClick={() => setBookingSuccess(true)}
-            >
-              {t('detail.bookConfirm')}
-              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>check</span>
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Booking Success Overlay */}
       {bookingSuccess && selectedRoom && (
-        <div className="dp-success-overlay">
-          <div className="dp-success-content">
-            <div className="dp-success-icon">
-              <span className="material-symbols-outlined">check_circle</span>
+        <div className="fixed inset-0 z-[200] bg-white flex items-center justify-center animate-[fadeIn_0.3s_ease]">
+          <div className="text-center p-8 px-6 max-w-[360px] w-full">
+            <div className="mb-6 flex justify-center">
+              <div className="w-24 h-24 rounded-full bg-green-50 flex items-center justify-center text-green-500 animate-[popIn_0.5s_cubic-bezier(0.175,0.885,0.32,1.275)_both]">
+                 <span className="material-symbols-outlined text-[48px]">check</span>
+              </div>
             </div>
-            <h2 className="dp-success-title">{t('detail.bookSuccess')}</h2>
-            <p className="dp-success-msg">
+            <h2 className="text-[28px] font-extrabold text-gray-900 mb-3 tracking-tight">{t('detail.bookSuccess')}</h2>
+            <p className="text-[15px] text-gray-500 font-medium leading-relaxed mb-8">
               {t('detail.bookSuccessMsg', { hotel: hotelDisplayName, room: selectedRoom.name })}
             </p>
-            <div className="dp-success-summary">
-              <div className="dp-success-row">
-                <span>{t('detail.dateRange')}</span>
-                <span>{formatDate(store.checkIn, lang)} - {formatDate(store.checkOut, lang)}</span>
+            
+            <div className="bg-[#f5f5f7] rounded-[24px] p-5 mb-8 text-left">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-[14px] font-bold text-gray-500">{t('detail.dateRange')}</span>
+                <span className="text-[15px] font-extrabold text-gray-900">{formatDate(store.checkIn, lang)} - {formatDate(store.checkOut, lang)}</span>
               </div>
-              <div className="dp-success-row">
-                <span>{t('detail.totalAmount')}</span>
-                <span className="dp-success-amount">¥{selectedRoom.price * nights * store.roomCount}</span>
+              <div className="flex justify-between items-center pt-3 border-t border-gray-200/50">
+                <span className="text-[14px] font-bold text-gray-500">{t('detail.totalAmount')}</span>
+                <span className="text-[20px] font-extrabold text-sky-500">¥{selectedRoom.price * nights * store.roomCount}</span>
               </div>
             </div>
-            <div className="dp-success-actions">
-              <button className="dp-success-btn-secondary" onClick={() => { setBookingSuccess(false); setSelectedRoom(null); }}>
-                {t('common.back')}
-              </button>
-              <button className="dp-success-btn-primary" onClick={() => navigate('/m')}>
-                {t('detail.backToHome')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* All Amenities Modal */}
-      {showAllAmenities && (
-        <div className="dp-booking-overlay">
-          <div className="dp-booking-mask" onClick={() => setShowAllAmenities(false)} />
-          <div className="dp-booking-sheet" style={{ maxHeight: '60vh' }}>
-            <div className="dp-sheet-handle"><div className="handle-bar" /></div>
-            <h3 className="dp-booking-title">{t('detail.amenities')}</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, padding: '0 4px 16px' }}>
-              {facilities.map((f: string) => {
-                const info = getFacilityInfo(f, lang);
-                return (
-                  <div key={f} className="dp-amenity-card">
-                    <div className="dp-amenity-icon">
-                      <span className="material-symbols-outlined">{info.icon}</span>
-                    </div>
-                    <span className="dp-amenity-name">{info.name}</span>
-                  </div>
-                );
-              })}
-            </div>
+            
+            <button 
+              className="w-full py-4 rounded-2xl text-[17px] font-extrabold cursor-pointer transition-all font-['Plus_Jakarta_Sans'] bg-gray-900 text-white border-none shadow-lg active:scale-95 hover:bg-black" 
+              onClick={() => navigate('/m')}
+            >
+              {t('detail.backToHome')}
+            </button>
           </div>
         </div>
       )}
