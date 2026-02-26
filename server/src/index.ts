@@ -8,7 +8,6 @@ import { sequelize, Hotel } from './models';
 import authRoutes from './routes/auth';
 import hotelRoutes from './routes/hotels';
 import uploadRoutes from './routes/upload';
-
 const app = express();
 const PORT = process.env.PORT || 3001;
 
