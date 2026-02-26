@@ -179,5 +179,4 @@ RoomType.belongsTo(Hotel, { foreignKey: 'hotel_id' });
 
 Hotel.hasMany(NearbyPlace, { foreignKey: 'hotel_id', as: 'NearbyPlaces' });
 NearbyPlace.belongsTo(Hotel, { foreignKey: 'hotel_id' });
-
 export { sequelize, User, Hotel, RoomType, NearbyPlace };
