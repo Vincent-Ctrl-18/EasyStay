@@ -8,7 +8,6 @@ import { sequelize, User, Hotel, RoomType, NearbyPlace } from './models';
 interface Theme {
   c1: string; c2: string; c3: string; accent: string;
 }
-
 const cityThemes: Record<string, Theme> = {
   '上海': { c1: '#0c4a6e', c2: '#0284c7', c3: '#38bdf8', accent: '#fbbf24' },
   '北京': { c1: '#7f1d1d', c2: '#dc2626', c3: '#f87171', accent: '#fbbf24' },
