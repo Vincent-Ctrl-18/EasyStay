@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import { authenticate } from '../middleware/auth';
-
 const router = Router();
 
 const storage = multer.diskStorage({

@@ -3,7 +3,6 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User } from '../models';
 import { JWT_SECRET, authenticate } from '../middleware/auth';
-
 const router = Router();
 //创建路由实例
 

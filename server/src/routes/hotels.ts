@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import { Op, Sequelize } from 'sequelize';
 import { Hotel, RoomType, NearbyPlace, sequelize as db } from '../models';
 import { authenticate, requireRole } from '../middleware/auth';
-
 const router = Router();
 
 // ========== Named routes MUST come before /:id ==========
