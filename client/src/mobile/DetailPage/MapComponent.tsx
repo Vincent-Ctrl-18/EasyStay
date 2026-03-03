@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import AMapLoader from '@amap/amap-jsapi-loader';
+import { useEffect, useState } from 'react';
 
 interface MapComponentProps {
   address: string;
@@ -8,94 +7,72 @@ interface MapComponentProps {
 }
 
 export default function MapComponent({ address, city, hotelName }: MapComponentProps) {
-  const mapContainer = useRef<HTMLDivElement>(null);
+  const [mapUrl, setMapUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
-  const mapRef = useRef<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let isUnmounted = false;
-    let AMap: any;
+    if (!address) {
+      setError(true);
+      setLoading(false);
+      return;
+    }
 
-    // AMap security config (optional but recommended for newer versions, using a mock config if none provided by user to avoid some warnings)
-    (window as any)._AMapSecurityConfig = {
-      securityJsCode: 'YOUR_SECRET_CODE_PLACEHOLDER',
-    };
-    
-    AMapLoader.load({
-      key: '700ad2685f70c21499d6a29b96369dae',
-      version: '2.0',
-      plugins: ['AMap.Geocoder', 'AMap.Marker'],
-    })
-      .then((loadedAMap) => {
-        if (isUnmounted) return;
-        AMap = loadedAMap;
-        
-        if (!mapContainer.current) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(false);
+    setMapUrl(null);
 
-        // Clean up any existing map in this container (Strict Mode protection)
-        if (mapRef.current) {
-          mapRef.current.destroy();
-        }
-
-        const newMap = new AMap.Map(mapContainer.current, {
-          zoom: 15,
-          center: [116.397428, 39.90923], // default Beijing
-          dragEnable: false,
-          zoomEnable: false,
-          scrollWheel: false,
-          doubleClickZoom: false,
-        });
-
-        mapRef.current = newMap;
-
-        const geocoder = new AMap.Geocoder({
-          city: city || '全国',
-        });
-
-        geocoder.getLocation(address, (status: string, result: any) => {
-          if (isUnmounted) return;
-          if (status === 'complete' && result.info === 'OK') {
-            const lnglat = result.geocodes[0].location;
-            newMap.setCenter(lnglat);
-
-            // Create marker element
-            const markerContent = document.createElement('div');
-            markerContent.className = 'w-10 h-10 bg-sky-500 rounded-full flex items-center justify-center text-white shadow-lg animate-[bounce_2s_infinite] border-2 border-white';
-            markerContent.innerHTML = '<span class="material-symbols-outlined text-[20px]">location_on</span>';
-
-            const marker = new AMap.Marker({
-              position: lnglat,
-              content: markerContent,
-              offset: new AMap.Pixel(-20, -40),
-            });
-
-            newMap.add(marker);
-          } else {
-            console.warn('Geocoding failed for address:', address);
-            // Some addresses might fail geocoding, we don't necessarily want to show a hard error if the map itself loaded
-            // We'll just leave it at the default city center
-          }
-        });
+    fetch(
+      `/api/map/staticmap?address=${encodeURIComponent(address)}&city=${encodeURIComponent(city || '')}`
+    )
+      .then((res) => {
+        if (!res.ok) throw new Error('request failed');
+        return res.json();
       })
-      .catch((e) => {
-        if (isUnmounted) return;
-        console.error('AMap loading failed:', e);
-        setError(true);
+      .then((data) => {
+        if (cancelled) return;
+        if (data.url) {
+          setMapUrl(data.url);
+        } else {
+          setError(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
 
     return () => {
-      isUnmounted = true;
-      if (mapRef.current) {
-        mapRef.current.destroy();
-        mapRef.current = null;
-      }
+      cancelled = true;
     };
   }, [address, city]);
 
   return (
-    <div className="relative w-full h-48 rounded-xl overflow-hidden shadow-sm border border-gray-200 group cursor-pointer [&_.amap-logo]:!hidden [&_.amap-copyright]:!hidden [&_.amap-layer_img]:!max-w-none [&_.amap-layer_img]:!max-h-none">
-      <div ref={mapContainer} className="w-full h-full" />
-      
+    <div className="relative w-full h-48 rounded-xl overflow-hidden shadow-sm border border-gray-200 group cursor-pointer">
+      {/* Loading skeleton */}
+      {loading && (
+        <div className="absolute inset-0 z-20 bg-gray-100 animate-pulse flex items-center justify-center">
+          <span className="material-symbols-outlined text-[32px] text-gray-300">map</span>
+        </div>
+      )}
+
+      {/* Static map image */}
+      {mapUrl && (
+        <img
+          src={mapUrl}
+          alt={`${hotelName} 位置地图`}
+          className="w-full h-full object-cover"
+          onLoad={() => setLoading(false)}
+          onError={() => {
+            setError(true);
+            setLoading(false);
+          }}
+        />
+      )}
+
       {/* Overlay to intercept clicks if we want to open a larger map later */}
       <div className="absolute inset-0 bg-transparent z-10 hover:bg-black/5 transition-colors" />
 

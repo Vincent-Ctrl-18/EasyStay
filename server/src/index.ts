@@ -8,6 +8,7 @@ import { sequelize, Hotel } from './models';
 import authRoutes from './routes/auth';
 import hotelRoutes from './routes/hotels';
 import uploadRoutes from './routes/upload';
+import mapRoutes from './routes/map';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -46,6 +47,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/auth', authRoutes);
 app.use('/api/hotels', hotelRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/map', mapRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
