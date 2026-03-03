@@ -3,108 +3,92 @@ import fs from 'fs';
 import path from 'path';
 import { sequelize, User, Hotel, RoomType, NearbyPlace } from './models';
 
-// ========== SVG Placeholder Image Generator ==========
+// ========== 本地图片读取配置（适配你的实际路径） ==========
+// 你的图片存储根目录
+const HOTEL_IMAGE_ROOT = path.join(__dirname, 'uploads');
 
-interface Theme {
-  c1: string; c2: string; c3: string; accent: string;
-}
-const cityThemes: Record<string, Theme> = {
-  '上海': { c1: '#0c4a6e', c2: '#0284c7', c3: '#38bdf8', accent: '#fbbf24' },
-  '北京': { c1: '#7f1d1d', c2: '#dc2626', c3: '#f87171', accent: '#fbbf24' },
-  '杭州': { c1: '#064e3b', c2: '#059669', c3: '#34d399', accent: '#fbbf24' },
-  '三亚': { c1: '#164e63', c2: '#0891b2', c3: '#22d3ee', accent: '#fbbf24' },
-  '成都': { c1: '#4c1d95', c2: '#7c3aed', c3: '#a78bfa', accent: '#fbbf24' },
-  '广州': { c1: '#78350f', c2: '#d97706', c3: '#fbbf24', accent: '#ffffff' },
-  '深圳': { c1: '#1e293b', c2: '#475569', c3: '#94a3b8', accent: '#38bdf8' },
-  '西安': { c1: '#451a03', c2: '#b45309', c3: '#f59e0b', accent: '#fef3c7' },
-  '苏州': { c1: '#134e4a', c2: '#0d9488', c3: '#5eead4', accent: '#fbbf24' },
-  '重庆': { c1: '#831843', c2: '#db2777', c3: '#f472b6', accent: '#fbbf24' },
-};
-
-function getTheme(city: string): Theme {
-  return cityThemes[city] || cityThemes['上海'];
+/**
+ * 清理文件名中的特殊字符（适配Windows系统）
+ * @param str 原始字符串（酒店名称/城市）
+ * @returns 清理后的字符串
+ */
+function sanitizeFilename(str: string): string {
+  // 替换Windows禁止的文件名字符
+  return str.replace(/[\\/:*?"<>|]/g, '_');
 }
 
-function hotelSVG(name: string, nameEn: string, star: number, city: string, variant: number): string {
-  const t = getTheme(city);
-  const ch = name.charAt(0);
-  const stars = '\u2605'.repeat(star);
-  const cx = [650, 100, 400][variant] || 650;
-  const cy = [120, 100, 80][variant] || 120;
-  const x2 = variant === 1 ? '0' : '100';
+/**
+ * 获取酒店对应的本地图片路径
+ * @param hotelName 酒店中文名称
+ * @param city 城市名称
+ * @param index 图片序号（1/2/3）
+ * @returns 图片相对路径（如 /uploads/上海_上海外滩华尔道夫酒店_1.jpg）
+ */
+function getHotelImagePath(hotelName: string, city: string, index: number): string {
+  const sanitizedName = sanitizeFilename(hotelName);
+  const sanitizedCity = sanitizeFilename(city);
+  
+  // 支持的图片格式（按优先级排序）
+  const extensions = ['jpg', 'png', 'webp', 'jpeg', 'svg'];
+  
+  // 遍历格式查找图片
+  for (const ext of extensions) {
+    // 图片命名规则：城市_酒店名称_序号.格式（如 上海_上海外滩华尔道夫酒店_1.jpg）
+    const filename = `${sanitizedCity}_${sanitizedName}_${index}.${ext}`;
+    const fullPath = path.join(HOTEL_IMAGE_ROOT, filename);
+    
+    if (fs.existsSync(fullPath)) {
+      return `/uploads/${filename}`; // 返回相对路径（前端可访问）
+    }
+  }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
-<defs>
-<linearGradient id="bg" x1="0%" y1="0%" x2="${x2}%" y2="100%">
-<stop offset="0%" stop-color="${t.c1}"/><stop offset="50%" stop-color="${t.c2}"/><stop offset="100%" stop-color="${t.c3}"/>
-</linearGradient>
-<linearGradient id="ov" x1="0%" y1="0%" x2="0%" y2="100%">
-<stop offset="0%" stop-color="rgba(0,0,0,0)"/><stop offset="65%" stop-color="rgba(0,0,0,0)"/><stop offset="100%" stop-color="rgba(0,0,0,0.55)"/>
-</linearGradient>
-</defs>
-<rect width="800" height="500" fill="url(#bg)"/>
-<rect width="800" height="500" fill="url(#ov)"/>
-<circle cx="${cx}" cy="${cy}" r="200" fill="#fff" opacity=".06"/>
-<circle cx="${cx + 80}" cy="${cy - 40}" r="120" fill="#fff" opacity=".04"/>
-<circle cx="${800 - cx}" cy="${500 - cy}" r="160" fill="#fff" opacity=".04"/>
-<text x="400" y="220" font-family="Arial,'Microsoft YaHei','PingFang SC',sans-serif" font-size="160" font-weight="bold" fill="#fff" opacity=".1" text-anchor="middle" dominant-baseline="middle">${ch}</text>
-<text x="48" y="388" font-family="Arial,sans-serif" font-size="20" fill="${t.accent}">${stars}</text>
-<text x="48" y="428" font-family="Arial,'Microsoft YaHei','PingFang SC',sans-serif" font-size="30" font-weight="bold" fill="#fff">${name}</text>
-<text x="48" y="465" font-family="Arial,'Microsoft YaHei','PingFang SC',sans-serif" font-size="16" fill="#fff" opacity=".7">${nameEn}</text>
-</svg>`;
+  // 兜底：如果找不到对应图片，返回默认图片（需确保uploads下有default_hotel.jpg）
+  return '/uploads/default_hotel.jpg';
 }
 
-function roomSVG(roomName: string, city: string, idx: number): string {
-  const t = getTheme(city);
-  // Slight color shift per room
-  const colors = [
-    [t.c1, t.c2],
-    [t.c2, t.c3],
-    [t.c1, t.c3],
-  ];
-  const [ca, cb] = colors[idx % colors.length];
+/**
+ * 获取房型对应的本地图片路径
+ * @param roomName 房型名称
+ * @param hotelName 酒店名称
+ * @param city 城市名称
+ * @param index 房型序号
+ * @returns 图片相对路径
+ */
+function getRoomImagePath(roomName: string, hotelName: string, city: string, index: number): string {
+  const sanitizedRoom = sanitizeFilename(roomName);
+  const sanitizedHotel = sanitizeFilename(hotelName);
+  const sanitizedCity = sanitizeFilename(city);
+  
+  const extensions = ['jpg', 'png', 'webp', 'jpeg', 'svg'];
+  
+  for (const ext of extensions) {
+    // 房型图片命名规则：城市_酒店名称_房型名称_序号.格式
+    const filename = `${sanitizedCity}_${sanitizedHotel}_${sanitizedRoom}_${index}.${ext}`;
+    const fullPath = path.join(HOTEL_IMAGE_ROOT, filename);
+    
+    if (fs.existsSync(fullPath)) {
+      return `/uploads/${filename}`;
+    }
+  }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
-<defs>
-<linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-<stop offset="0%" stop-color="${ca}"/><stop offset="100%" stop-color="${cb}"/>
-</linearGradient>
-</defs>
-<rect width="600" height="400" fill="url(#bg)"/>
-<circle cx="300" cy="155" r="100" fill="#fff" opacity=".07"/>
-<circle cx="440" cy="100" r="55" fill="#fff" opacity=".05"/>
-<g transform="translate(265,115)" fill="#fff" opacity=".18">
-<rect x="0" y="30" width="70" height="7" rx="3.5"/>
-<rect x="5" y="12" width="25" height="18" rx="5"/>
-<rect x="-4" y="37" width="78" height="5" rx="2.5"/>
-<rect x="0" y="42" width="4" height="9" rx="2"/>
-<rect x="66" y="42" width="4" height="9" rx="2"/>
-</g>
-<text x="300" y="255" font-family="Arial,'Microsoft YaHei','PingFang SC',sans-serif" font-size="24" font-weight="bold" fill="#fff" text-anchor="middle">${roomName}</text>
-<text x="300" y="288" font-family="Arial,'Microsoft YaHei','PingFang SC',sans-serif" font-size="13" fill="#fff" opacity=".55" text-anchor="middle">Room Type</text>
-</svg>`;
+  // 兜底：默认房型图片
+  return '/uploads/default_room.jpg';
 }
 
-// ========== Write SVGs to disk ==========
-
+// ========== 目录确保函数（保留） ==========
 function ensureDir(dir: string) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
-function writeSVG(filePath: string, content: string) {
-  fs.writeFileSync(filePath, content, 'utf-8');
-}
-
 // ========== Main Seed ==========
-
 async function seed() {
   await sequelize.sync({ force: true });
   console.log('Database reset');
 
-  const uploadsDir = path.join(__dirname, 'uploads');
-  ensureDir(uploadsDir);
+  // 确保uploads目录存在（你的实际路径）
+  ensureDir(HOTEL_IMAGE_ROOT);
 
-  // Create users
+  // Create users（保留原有逻辑）
   const adminHash = await bcrypt.hash('admin123', 10);
   const merchantHash = await bcrypt.hash('merchant123', 10);
 
@@ -112,7 +96,7 @@ async function seed() {
   const merchant = await User.create({ username: 'merchant', password_hash: merchantHash, role: 'merchant' });
   console.log('Users created: admin/admin123, merchant/merchant123');
 
-  // Hotel seed data
+  // Hotel seed data（保留原有数据）
   const hotelsData = [
     {
       name_cn: '上海外滩华尔道夫酒店', name_en: 'Waldorf Astoria Shanghai on the Bund',
@@ -283,23 +267,21 @@ async function seed() {
     },
   ];
 
-  // Generate SVG images and create hotels
+  // 读取本地图片并创建酒店（核心修改部分）
   let totalImages = 0;
 
   for (let hi = 0; hi < hotelsData.length; hi++) {
     const data = hotelsData[hi];
 
-    // Generate 3 hotel images
+    // 读取3张酒店图片（替换原SVG生成逻辑）
     const hotelImgPaths: string[] = [];
     for (let vi = 0; vi < 3; vi++) {
-      const filename = `demo-hotel${hi + 1}-${vi + 1}.svg`;
-      const svg = hotelSVG(data.name_cn, data.name_en, data.star, data.city, vi);
-      writeSVG(path.join(uploadsDir, filename), svg);
-      hotelImgPaths.push(`/uploads/${filename}`);
+      const imgPath = getHotelImagePath(data.name_cn, data.city, vi + 1);
+      hotelImgPaths.push(imgPath);
       totalImages++;
     }
 
-    // Create hotel
+    // Create hotel（保留原有逻辑，仅图片路径改为本地）
     const hotel = await Hotel.create({
       name_cn: data.name_cn,
       name_en: data.name_en,
@@ -310,17 +292,15 @@ async function seed() {
       description: data.description,
       tags: JSON.stringify(data.tags),
       facilities: JSON.stringify(data.facilities),
-      images: JSON.stringify(hotelImgPaths),
+      images: JSON.stringify(hotelImgPaths), // 本地图片路径
       merchant_id: merchant.id,
       status: 'approved',
     });
 
-    // Create rooms with images
+    // Create rooms with local images（替换原SVG生成逻辑）
     for (let ri = 0; ri < data.rooms.length; ri++) {
       const room = data.rooms[ri];
-      const roomFilename = `demo-room${hi + 1}-${ri + 1}.svg`;
-      const svg = roomSVG(room.name, data.city, ri);
-      writeSVG(path.join(uploadsDir, roomFilename), svg);
+      const roomImgPath = getRoomImagePath(room.name, data.name_cn, data.city, ri + 1);
       totalImages++;
 
       await RoomType.create({
@@ -330,11 +310,11 @@ async function seed() {
         original_price: room.original_price,
         capacity: room.capacity,
         breakfast: room.breakfast,
-        images: JSON.stringify([`/uploads/${roomFilename}`]),
+        images: JSON.stringify([roomImgPath]), // 本地房型图片路径
       });
     }
 
-    // Create nearby places
+    // Create nearby places（保留原有逻辑）
     for (const place of data.nearby) {
       await NearbyPlace.create({
         hotel_id: hotel.id,
@@ -346,7 +326,7 @@ async function seed() {
   }
 
   console.log(`Created ${hotelsData.length} hotels with rooms and nearby places`);
-  console.log(`Generated ${totalImages} demo SVG images`);
+  console.log(`Loaded ${totalImages} local images (fallback to default if not found)`);
   console.log('Seed complete!');
   process.exit(0);
 }
